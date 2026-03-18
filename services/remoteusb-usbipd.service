@@ -1,0 +1,15 @@
+[Unit]
+Description=RemoteUSB USB/IP Daemon
+After=network.target
+
+[Service]
+Type=forking
+ExecStartPre=/sbin/modprobe usbip_core
+ExecStartPre=/sbin/modprobe usbip_host
+ExecStart=/usr/sbin/usbipd -D
+ExecStartPost=/bin/sh -c 'sleep 1 && usbip bind --busid=$(usbip list -l | grep -oP "(?<=busid )[^ ]+" | head -1) || true'
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

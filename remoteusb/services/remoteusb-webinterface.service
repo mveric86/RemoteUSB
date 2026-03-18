@@ -1,0 +1,14 @@
+[Unit]
+Description=RemoteUSB Webinterface
+After=remoteusb-gpio.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/remoteusb/webinterface/app.py
+Restart=always
+RestartSec=5
+WorkingDirectory=/opt/remoteusb/webinterface
+
+[Install]
+# Nicht beim Boot starten – wird vom Watchdog bei AP-Modus gestartet
+WantedBy=multi-user.target

@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+# =============================================================================
+# RemoteUSB – GPIO Handler
+# Verwaltet RGB-LED (Software-PWM) und Taster (AP-Modus, Shutdown)
+# =============================================================================
+
+import time
+import signal
+import sys
+import subprocess
+from gpiozero import PWMLED, Button
+from configparser import ConfigParser
+
+# -----------------------------------------------------------------------------
+# Konfiguration laden
+# -----------------------------------------------------------------------------
+SETTINGS_FILE = "/etc/remoteusb/settings.conf"
+
+def load_settings():
+    """Lädt LED-Helligkeitseinstellungen aus der Konfigurationsdatei."""
+    config = ConfigParser()
+    defaults = {
+        "LED_RED_BRIGHTNESS":   "100",
+        "LED_GREEN_BRIGHTNESS": "100",
+        "LED_BLUE_BRIGHTNESS":  "100",
+    }
+    try:
+        with open(SETTINGS_FILE) as f:
+            # ConfigParser braucht einen Abschnitt – wir fügen einen dummy hinzu
+            content = "[settings]\n" + f.read()
+        config.read_string(content)
+        return {
+            "red":   int(config["settings"].get("LED_RED_BRIGHTNESS",   defaults["LED_RED_BRIGHTNESS"]))   / 100,
+            "green": int(config["settings"].get("LED_GREEN_BRIGHTNESS", defaults["LED_GREEN_BRIGHTNESS"])) / 100,
+            "blue":  int(config["settings"].get("LED_BLUE_BRIGHTNESS",  defaults["LED_BLUE_BRIGHTNESS"]))  / 100,
+        }
+    except Exception as e:
+        print(f"[WARN] Einstellungen konnten nicht geladen werden: {e}. Verwende Standardwerte.")
+        return {"red": 1.0, "green": 1.0, "blue": 1.0}
+
+# -----------------------------------------------------------------------------
+# GPIO-Pins (aus default.conf via Umgebungsvariablen oder Standardwerte)
+# -----------------------------------------------------------------------------
+import os
+
+PIN_LED_RED   = int(os.environ.get("GPIO_LED_RED",         25))
+PIN_LED_GREEN = int(os.environ.get("GPIO_LED_GREEN",       24))
+PIN_LED_BLUE  = int(os.environ.get("GPIO_LED_BLUE",        23))
+PIN_BTN_AP    = int(os.environ.get("GPIO_AP_BUTTON",        4))
+PIN_BTN_SHUTDOWN = int(os.environ.get("GPIO_SHUTDOWN_BUTTON", 27))
+BUTTON_HOLD_TIME = float(os.environ.get("BUTTON_HOLD_TIME",  2.0))
+
+# -----------------------------------------------------------------------------
+# LED initialisieren
+# -----------------------------------------------------------------------------
+led_red   = PWMLED(PIN_LED_RED)
+led_green = PWMLED(PIN_LED_GREEN)
+led_blue  = PWMLED(PIN_LED_BLUE)
+
+# -----------------------------------------------------------------------------
+# LED-Steuerung
+# -----------------------------------------------------------------------------
+_blink_active = False
+
+def _apply_brightness(r, g, b):
+    """Wendet Helligkeitsfaktor aus Einstellungen an."""
+    settings = load_settings()
+    led_red.value   = r * settings["red"]
+    led_green.value = g * settings["green"]
+    led_blue.value  = b * settings["blue"]
+
+def led_off():
+    global _blink_active
+    _blink_active = False
+    led_red.off()
+    led_green.off()
+    led_blue.off()
+
+def led_set(r, g, b):
+    """Setzt LED auf eine Farbe (Werte 0.0–1.0), stoppt Blinken."""
+    global _blink_active
+    _blink_active = False
+    time.sleep(0.05)  # kurz warten bis Blink-Loop beendet
+    _apply_brightness(r, g, b)
+
+def led_blink(r, g, b, interval=0.5):
+    """Lässt LED in einer Farbe blinken (blockierend, in eigenem Thread aufrufen)."""
+    global _blink_active
+    _blink_active = True
+    while _blink_active:
+        _apply_brightness(r, g, b)
+        time.sleep(interval)
+        if not _blink_active:
+            break
+        led_off()
+        time.sleep(interval)
+
+# -----------------------------------------------------------------------------
+# Status-Farben (Convenience-Funktionen für den Watchdog)
+# -----------------------------------------------------------------------------
+def status_wg_connected():
+    """Blau – WLAN + WireGuard verbunden"""
+    led_set(0, 0, 1)
+
+def status_wg_off():
+    """Grün – WLAN verbunden, WireGuard nicht benötigt (Heimnetz)"""
+    led_set(0, 1, 0)
+
+def status_wg_error():
+    """Gelb – WLAN verbunden, WireGuard nicht erreichbar"""
+    led_set(1, 1, 0)
+
+def status_no_wifi():
+    """Rot – kein WLAN"""
+    led_set(1, 0, 0)
+
+def status_ap_mode():
+    """Gelb blinkend – AP-Modus aktiv"""
+    import threading
+    threading.Thread(target=led_blink, args=(1, 1, 0, 0.5), daemon=True).start()
+
+def status_shutdown():
+    """Rot blinkend – Shutdown läuft"""
+    import threading
+    threading.Thread(target=led_blink, args=(1, 0, 0, 0.2), daemon=True).start()
+
+# -----------------------------------------------------------------------------
+# Taster
+# -----------------------------------------------------------------------------
+btn_ap       = Button(PIN_BTN_AP,       hold_time=BUTTON_HOLD_TIME, pull_up=True)
+btn_shutdown = Button(PIN_BTN_SHUTDOWN, hold_time=BUTTON_HOLD_TIME, pull_up=True)
+
+def on_ap_held():
+    """AP-Modus erzwingen."""
+    print("[INFO] AP-Taster gehalten – AP-Modus wird erzwungen.")
+    subprocess.run(["systemctl", "start", "remoteusb-apmode.service"])
+
+def on_shutdown_held():
+    """Sauberer Shutdown."""
+    print("[INFO] Shutdown-Taster gehalten – System wird heruntergefahren.")
+    status_shutdown()
+    time.sleep(2)
+    subprocess.run(["shutdown", "-h", "now"])
+
+btn_ap.when_held       = on_ap_held
+btn_shutdown.when_held = on_shutdown_held
+
+# -----------------------------------------------------------------------------
+# Sauberes Beenden
+# -----------------------------------------------------------------------------
+def cleanup(signum=None, frame=None):
+    print("[INFO] GPIO Handler beendet.")
+    led_off()
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, cleanup)
+signal.signal(signal.SIGINT,  cleanup)
+
+# -----------------------------------------------------------------------------
+# Main – wartet auf Ereignisse
+# -----------------------------------------------------------------------------
+if __name__ == "__main__":
+    print("[INFO] RemoteUSB GPIO Handler gestartet.")
+    print(f"[INFO] AP-Taster: GPIO {PIN_BTN_AP}, Shutdown-Taster: GPIO {PIN_BTN_SHUTDOWN}")
+    print(f"[INFO] LED: R={PIN_LED_RED}, G={PIN_LED_GREEN}, B={PIN_LED_BLUE}")
+
+    # Startanimation – alle Farben kurz aufleuchten
+    for r, g, b in [(1,0,0), (0,1,0), (0,0,1)]:
+        _apply_brightness(r, g, b)
+        time.sleep(0.3)
+    led_off()
+
+    # Warten – LED-Status wird vom Watchdog gesetzt
+    signal.pause()
