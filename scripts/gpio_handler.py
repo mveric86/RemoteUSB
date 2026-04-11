@@ -155,6 +155,7 @@ def cleanup(signum=None, frame=None):
 
 signal.signal(signal.SIGTERM, cleanup)
 signal.signal(signal.SIGINT,  cleanup)
+signal.signal(signal.SIGUSR1, lambda s, f: None)  # Ignorieren – Status wird gepollt
 
 # -----------------------------------------------------------------------------
 # Status-Polling
