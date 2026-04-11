@@ -87,6 +87,12 @@ mkdir -p /etc/remoteusb
 mkdir -p /etc/wireguard
 mkdir -p /etc/wpa_supplicant
 
+# Leere Netzwerk-Liste anlegen falls nicht vorhanden
+# → ohne networks.json keine WireGuard-Zuordnung, ohne WLAN → AP-Modus
+if [ ! -f /etc/remoteusb/networks.json ]; then
+    echo "[]" > /etc/remoteusb/networks.json
+fi
+
 # Standard-Einstellungen anlegen falls nicht vorhanden
 if [ ! -f /etc/remoteusb/settings.conf ]; then
     cat > /etc/remoteusb/settings.conf <<EOF

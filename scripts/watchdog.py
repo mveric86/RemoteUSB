@@ -52,18 +52,25 @@ def get_current_ssid():
         return None
 
 def is_wg_required(ssid):
-    """Prüft ob für die aktuelle SSID WireGuard benötigt wird."""
+    """Prüft ob für die aktuelle SSID WireGuard benötigt wird.
+
+    Rückgabewerte:
+      True  – WireGuard benötigt
+      False – kein WireGuard (oder SSID unbekannt → Default)
+
+    Unbekannte SSIDs werden nicht mehr als AP-Modus-Trigger behandelt,
+    damit die Bridge direkt nach dem Flashen mit vorkonfiguriertem WLAN
+    funktioniert. Zuordnung kann später über das Webinterface erfolgen.
+    """
     try:
         with open(WLAN_CONFIG) as f:
             networks = json.load(f)
         for net in networks:
             if net.get("ssid") == ssid:
-                return net.get("use_wireguard", True)
-        # SSID nicht in der Liste – AP-Modus starten
-        return None
+                return net.get("use_wireguard", False)
     except Exception:
-        # Keine networks.json – AP-Modus starten
-        return None
+        pass
+    return False
 
 def is_wg_connected():
     """Prüft ob WireGuard-Verbindung aktiv ist (Ping auf WG-Server)."""
@@ -154,19 +161,11 @@ def check():
 
     _no_ssid_count = 0
 
-    # WLAN verbunden
-    wg_required = is_wg_required(ssid)
-
-    # SSID unbekannt → AP-Modus starten falls nicht bereits aktiv
-    if wg_required is None:
-        if not _ap_mode_active:
-            print(f"[INFO] SSID '{ssid}' nicht in networks.json – AP-Modus wird gestartet.")
-            start_ap_mode()
-        return
-
-    # SSID bekannt – AP-Modus beenden falls aktiv
+    # WLAN verbunden – AP-Modus beenden falls aktiv
     if _ap_mode_active:
         stop_ap_mode()
+
+    wg_required = is_wg_required(ssid)
 
     # WireGuard nicht benötigt (z.B. Heimnetz)
     if not wg_required:
