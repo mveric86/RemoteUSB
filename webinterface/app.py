@@ -32,23 +32,61 @@ def load_networks():
 def save_networks(networks):
     with open(NETWORKS_FILE, "w") as f:
         json.dump(networks, f, indent=2)
-    _apply_wpa_supplicant(networks)
+    _apply_nm(networks)
 
-def _apply_wpa_supplicant(networks):
-    """Schreibt wpa_supplicant.conf aus der Netzwerkliste."""
-    lines = ["ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev",
-             "update_config=1", "country=DE", ""]
+NM_PREFIX = "remoteusb-"
+
+def _nm_list_managed():
+    """Namen aller NM-Verbindungen die uns gehören (remoteusb-*)."""
+    result = subprocess.run(
+        ["nmcli", "-t", "-f", "NAME", "connection", "show"],
+        capture_output=True, text=True
+    )
+    return [n for n in result.stdout.splitlines() if n.startswith(NM_PREFIX)]
+
+def _nm_delete_by_ssid(ssid):
+    """Löscht NM-Verbindungen mit passender SSID (auch nicht von uns verwaltete)."""
+    result = subprocess.run(
+        ["nmcli", "-t", "-f", "NAME,802-11-wireless.ssid", "connection", "show"],
+        capture_output=True, text=True
+    )
+    for line in result.stdout.splitlines():
+        if ":" not in line:
+            continue
+        name, con_ssid = line.split(":", 1)
+        if con_ssid == ssid:
+            subprocess.run(["nmcli", "connection", "delete", name],
+                           capture_output=True)
+
+def _apply_nm(networks):
+    """Synchronisiert NetworkManager-Verbindungen mit networks.json.
+
+    Strategie: Alle remoteusb-* Connections löschen und aus networks.json
+    neu anlegen. Deaktivierte Netze werden mit autoconnect=no angelegt,
+    damit Passwort/Priorität erhalten bleiben.
+    """
+    for name in _nm_list_managed():
+        subprocess.run(["nmcli", "connection", "delete", name],
+                       capture_output=True)
+
     for net in networks:
-        lines.append("network={")
-        lines.append(f'    ssid="{net["ssid"]}"')
-        lines.append(f'    psk="{net["password"]}"')
-        lines.append(f'    priority={net.get("priority", 1)}')
-        lines.append(f'    disabled={1 if net.get("disabled", False) else 0}')
-        lines.append("}")
-        lines.append("")
-    with open("/etc/wpa_supplicant/wpa_supplicant.conf", "w") as f:
-        f.write("\n".join(lines))
-    subprocess.run(["wpa_cli", "-i", "wlan0", "reconfigure"], capture_output=True)
+        ssid = net["ssid"]
+        con_name = f"{NM_PREFIX}{ssid}"
+        # Auch fremde Connections mit gleicher SSID entfernen, sonst
+        # konkurriert z.B. eine alte 'preconfigured'-Verbindung mit unserer.
+        _nm_delete_by_ssid(ssid)
+        cmd = [
+            "nmcli", "connection", "add",
+            "type", "wifi",
+            "ifname", "wlan0",
+            "con-name", con_name,
+            "ssid", ssid,
+            "wifi-sec.key-mgmt", "wpa-psk",
+            "wifi-sec.psk", net["password"],
+            "connection.autoconnect", "no" if net.get("disabled") else "yes",
+            "connection.autoconnect-priority", str(net.get("priority", 1)),
+        ]
+        subprocess.run(cmd, capture_output=True)
 
 # -----------------------------------------------------------------------------
 # Hilfsfunktionen – Einstellungen
@@ -189,18 +227,20 @@ def update_wg_config():
 # -----------------------------------------------------------------------------
 @app.route("/api/scan", methods=["GET"])
 def scan_networks():
+    """WLAN-Scan via nmcli. Funktioniert nur wenn wlan0 NM-managed ist –
+    im AP-Modus ist das nicht der Fall, dann wird die Liste leer sein."""
     try:
+        subprocess.run(["nmcli", "device", "wifi", "rescan"],
+                       capture_output=True, timeout=10)
         result = subprocess.run(
-            ["iwlist", "wlan0", "scan"],
+            ["nmcli", "-t", "-f", "SSID", "device", "wifi", "list"],
             capture_output=True, text=True, timeout=10
         )
         ssids = []
         for line in result.stdout.splitlines():
-            line = line.strip()
-            if line.startswith("ESSID:"):
-                ssid = line.split('"')[1]
-                if ssid and ssid not in ssids:
-                    ssids.append(ssid)
+            ssid = line.strip()
+            if ssid and ssid not in ssids:
+                ssids.append(ssid)
         return jsonify({"ssids": ssids})
     except Exception as e:
         return jsonify({"ssids": [], "error": str(e)}), 500
