@@ -242,6 +242,15 @@ def force_ap_mode(signum=None, frame=None):
 
 signal.signal(signal.SIGUSR1, force_ap_mode)
 
+def exit_force_ap(signum=None, frame=None):
+    """Wird vom Webinterface nach 'mit Netz verbinden' gesendet."""
+    global _force_ap
+    print("[INFO] Force-AP-Exit angefordert (Webinterface).")
+    _force_ap = False
+    stop_ap_mode()
+
+signal.signal(signal.SIGUSR2, exit_force_ap)
+
 # -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------

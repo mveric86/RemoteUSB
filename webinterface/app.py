@@ -235,16 +235,13 @@ def upload_wg_qr():
 # -----------------------------------------------------------------------------
 @app.route("/api/connect", methods=["POST"])
 def connect():
-    """AP-Modus beenden und Watchdog neu verbinden lassen."""
+    """AP-Modus beenden und Watchdog wieder ins Station-Netz gehen lassen."""
     try:
         pid = int(open("/run/remoteusb/watchdog.pid").read().strip())
         os.kill(pid, signal.SIGUSR2)
-    except Exception:
-        pass
-    subprocess.run(["systemctl", "stop",  "hostapd"])
-    subprocess.run(["systemctl", "stop",  "dnsmasq"])
-    subprocess.run(["systemctl", "start", "wpa_supplicant"])
-    return jsonify({"ok": True})
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 # -----------------------------------------------------------------------------
 # Main
