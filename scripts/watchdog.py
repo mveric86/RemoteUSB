@@ -118,15 +118,21 @@ def start_ap_mode():
         return
     print("[INFO] AP-Modus wird gestartet...")
     stop_wireguard()
+    # Alte hostapd/dnsmasq-Instanzen unbedingt killen – sonst hängt ein
+    # toter Radio-State am Interface und der AP sendet nicht mehr.
+    subprocess.run(["systemctl", "stop", "hostapd"], capture_output=True)
+    subprocess.run(["systemctl", "stop", "dnsmasq"], capture_output=True)
     # wlan0 aus NetworkManager lösen damit hostapd es übernehmen kann
     subprocess.run(["nmcli", "device", "set", "wlan0", "managed", "no"],
                    capture_output=True)
+    time.sleep(1)
     subprocess.run(["ip", "addr", "flush", "dev", "wlan0"], capture_output=True)
     subprocess.run(["ip", "addr", "add", "192.168.4.1/24", "dev", "wlan0"],
                    capture_output=True)
-    subprocess.run(["systemctl", "start", "hostapd"])
-    subprocess.run(["systemctl", "start", "dnsmasq"])
-    subprocess.run(["systemctl", "start", "remoteusb-webinterface.service"])
+    subprocess.run(["ip", "link", "set", "wlan0", "up"], capture_output=True)
+    subprocess.run(["systemctl", "restart", "hostapd"])
+    subprocess.run(["systemctl", "restart", "dnsmasq"])
+    subprocess.run(["systemctl", "restart", "remoteusb-webinterface.service"])
     _ap_mode_active = True
     set_status("ap_mode")
 
