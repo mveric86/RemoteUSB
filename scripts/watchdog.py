@@ -130,11 +130,14 @@ def check():
             set_status("no_wifi")
         return
 
-    # WLAN verbunden – AP-Modus beenden falls aktiv
-    if _ap_mode_active:
-        stop_ap_mode()
-
+    # WLAN verbunden – AP-Modus beenden falls aktiv und SSID bekannt
     wg_required = is_wg_required(ssid)
+
+    if _ap_mode_active:
+        if wg_required is None:
+            # SSID immer noch unbekannt – AP-Modus bleibt aktiv
+            return
+        stop_ap_mode()
 
     # SSID unbekannt oder keine Konfiguration → AP-Modus
     if wg_required is None:
