@@ -58,6 +58,53 @@ def _nm_delete_by_ssid(ssid):
             subprocess.run(["nmcli", "connection", "delete", name],
                            capture_output=True)
 
+def _migrate_existing_nm():
+    """Importiert bestehende NM-WLAN-Verbindungen nach networks.json
+    falls dort noch nicht vorhanden. So tauchen z.B. per Raspberry Pi
+    Imager (netplan) angelegte WLANs direkt in der UI auf.
+    Wird einmalig beim Webinterface-Start aufgerufen.
+    """
+    existing = load_networks()
+    existing_ssids = {n["ssid"] for n in existing}
+    result = subprocess.run(
+        ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"],
+        capture_output=True, text=True
+    )
+    changed = False
+    for line in result.stdout.splitlines():
+        if ":" not in line:
+            continue
+        name, ctype = line.split(":", 1)
+        if ctype != "802-11-wireless" or name.startswith(NM_PREFIX):
+            continue
+        ssid_res = subprocess.run(
+            ["nmcli", "-t", "-g", "802-11-wireless.ssid",
+             "connection", "show", name],
+            capture_output=True, text=True
+        )
+        ssid = ssid_res.stdout.strip()
+        if not ssid or ssid in existing_ssids:
+            continue
+        psk_res = subprocess.run(
+            ["nmcli", "-s", "-t", "-g", "802-11-wireless-security.psk",
+             "connection", "show", name],
+            capture_output=True, text=True
+        )
+        psk = psk_res.stdout.strip()
+        existing.append({
+            "ssid":          ssid,
+            "password":      psk,
+            "priority":      1,
+            "disabled":      False,
+            "use_wireguard": False,
+        })
+        existing_ssids.add(ssid)
+        changed = True
+    if changed:
+        with open(NETWORKS_FILE, "w") as f:
+            json.dump(existing, f, indent=2)
+        _apply_nm(existing)
+
 def _apply_nm(networks):
     """Synchronisiert NetworkManager-Verbindungen mit networks.json.
 
@@ -227,20 +274,19 @@ def update_wg_config():
 # -----------------------------------------------------------------------------
 @app.route("/api/scan", methods=["GET"])
 def scan_networks():
-    """WLAN-Scan via nmcli. Funktioniert nur wenn wlan0 NM-managed ist –
-    im AP-Modus ist das nicht der Fall, dann wird die Liste leer sein."""
+    """WLAN-Scan via iwlist – funktioniert unabhängig von NM-Management-Status."""
     try:
-        subprocess.run(["nmcli", "device", "wifi", "rescan"],
-                       capture_output=True, timeout=10)
         result = subprocess.run(
-            ["nmcli", "-t", "-f", "SSID", "device", "wifi", "list"],
-            capture_output=True, text=True, timeout=10
+            ["iwlist", "wlan0", "scan"],
+            capture_output=True, text=True, timeout=15
         )
         ssids = []
         for line in result.stdout.splitlines():
-            ssid = line.strip()
-            if ssid and ssid not in ssids:
-                ssids.append(ssid)
+            line = line.strip()
+            if line.startswith("ESSID:"):
+                ssid = line.split('"', 2)[1] if '"' in line else ""
+                if ssid and ssid not in ssids:
+                    ssids.append(ssid)
         return jsonify({"ssids": ssids})
     except Exception as e:
         return jsonify({"ssids": [], "error": str(e)}), 500
@@ -287,4 +333,8 @@ def connect():
 # Main
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
+    try:
+        _migrate_existing_nm()
+    except Exception as e:
+        print(f"[WARN] NM-Migration fehlgeschlagen: {e}")
     app.run(host="0.0.0.0", port=80, debug=False)
