@@ -1,0 +1,6 @@
+# Laufzeit-/Geheimdaten – niemals committen
+networks.json
+wg0.conf
+*.key
+*.pem
+.claude/
