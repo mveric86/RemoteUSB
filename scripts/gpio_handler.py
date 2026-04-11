@@ -157,6 +157,35 @@ signal.signal(signal.SIGTERM, cleanup)
 signal.signal(signal.SIGINT,  cleanup)
 
 # -----------------------------------------------------------------------------
+# Status-Polling
+# -----------------------------------------------------------------------------
+STATUS_FILE = "/run/remoteusb/status"
+_last_status = None
+
+def poll_status():
+    """Liest die Statusdatei alle 2 Sekunden und setzt die LED entsprechend."""
+    global _last_status
+    while True:
+        try:
+            with open(STATUS_FILE) as f:
+                status = f.read().strip()
+            if status != _last_status:
+                _last_status = status
+                if status == "wg_connected":
+                    status_wg_connected()
+                elif status == "wg_off":
+                    status_wg_off()
+                elif status == "wg_error":
+                    status_wg_error()
+                elif status == "no_wifi":
+                    status_no_wifi()
+                elif status == "ap_mode":
+                    status_ap_mode()
+        except Exception:
+            pass
+        time.sleep(2)
+
+# -----------------------------------------------------------------------------
 # Main – wartet auf Ereignisse
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
@@ -164,11 +193,20 @@ if __name__ == "__main__":
     print(f"[INFO] AP-Taster: GPIO {PIN_BTN_AP}, Shutdown-Taster: GPIO {PIN_BTN_SHUTDOWN}")
     print(f"[INFO] LED: R={PIN_LED_RED}, G={PIN_LED_GREEN}, B={PIN_LED_BLUE}")
 
+    # PID speichern
+    os.makedirs("/run/remoteusb", exist_ok=True)
+    with open("/run/remoteusb/gpio_handler.pid", "w") as f:
+        f.write(str(os.getpid()))
+
     # Startanimation – alle Farben kurz aufleuchten
     for r, g, b in [(1,0,0), (0,1,0), (0,0,1)]:
         _apply_brightness(r, g, b)
         time.sleep(0.3)
     led_off()
+
+    # Status-Polling in eigenem Thread
+    import threading
+    threading.Thread(target=poll_status, daemon=True).start()
 
     # Warten – LED-Status wird vom Watchdog gesetzt
     signal.pause()
