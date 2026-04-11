@@ -168,7 +168,10 @@ address=/#/$AP_IP
 EOF
 
 # hostapd und dnsmasq nicht beim Boot starten – nur bei Bedarf per Watchdog
+# Trixie maskiert hostapd bei disable → vorher unmasken, danach erneut unmasken
+systemctl unmask hostapd
 systemctl disable hostapd
+systemctl unmask hostapd
 systemctl disable dnsmasq
 
 # -----------------------------------------------------------------------------

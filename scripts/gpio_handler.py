@@ -69,12 +69,16 @@ def _apply_brightness(r, g, b):
     led_green.value = g * settings["green"]
     led_blue.value  = b * settings["blue"]
 
-def led_off():
-    global _blink_active
-    _blink_active = False
+def _leds_off():
+    """LEDs ausschalten ohne Blink-Status zu ändern."""
     led_red.off()
     led_green.off()
     led_blue.off()
+
+def led_off():
+    global _blink_active
+    _blink_active = False
+    _leds_off()
 
 def led_set(r, g, b):
     """Setzt LED auf eine Farbe (Werte 0.0–1.0), stoppt Blinken."""
@@ -92,7 +96,7 @@ def led_blink(r, g, b, interval=0.5):
         time.sleep(interval)
         if not _blink_active:
             break
-        led_off()
+        _leds_off()
         time.sleep(interval)
 
 # -----------------------------------------------------------------------------
@@ -210,5 +214,8 @@ if __name__ == "__main__":
     import threading
     threading.Thread(target=poll_status, daemon=True).start()
 
-    # Warten – LED-Status wird vom Watchdog gesetzt
-    signal.pause()
+    # Warten – LED-Status wird vom Watchdog gesetzt.
+    # signal.pause() returnt bei JEDEM Signal (auch SIGUSR1 vom Watchdog),
+    # daher in Schleife – nur SIGTERM/SIGINT beenden via cleanup() -> sys.exit().
+    while True:
+        signal.pause()

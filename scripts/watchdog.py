@@ -76,12 +76,28 @@ def is_wg_connected():
     except Exception:
         return False
 
+WG_CONFIG = "/etc/wireguard/wg0.conf"
+
+def is_wg_interface_up():
+    """Prüft ob wg0 als Interface existiert."""
+    result = subprocess.run(
+        ["ip", "link", "show", "wg0"],
+        capture_output=True
+    )
+    return result.returncode == 0
+
 def start_wireguard():
-    """Startet WireGuard."""
+    """Startet WireGuard – nur wenn Konfiguration existiert."""
+    if not os.path.exists(WG_CONFIG):
+        return
+    if is_wg_interface_up():
+        return
     subprocess.run(["wg-quick", "up", "wg0"], capture_output=True)
 
 def stop_wireguard():
-    """Stoppt WireGuard."""
+    """Stoppt WireGuard – nur wenn Interface aktiv."""
+    if not is_wg_interface_up():
+        return
     subprocess.run(["wg-quick", "down", "wg0"], capture_output=True)
 
 # -----------------------------------------------------------------------------
@@ -115,20 +131,28 @@ def stop_ap_mode():
 # Hauptschleife
 # -----------------------------------------------------------------------------
 _wg_error_since = None
+_no_ssid_count = 0
+NO_SSID_THRESHOLD = 3  # 3 aufeinanderfolgende Fehlschläge (~15s) vor AP-Modus
 
 def check():
-    global _wg_error_since, _ap_mode_active
+    global _wg_error_since, _ap_mode_active, _no_ssid_count
 
     ssid = get_current_ssid()
 
-    # Kein WLAN
+    # Kein WLAN – erst nach mehreren Fehlschlägen in Folge reagieren
     if not ssid:
+        _no_ssid_count += 1
+        if _no_ssid_count < NO_SSID_THRESHOLD:
+            print(f"[WARN] Kein SSID ({_no_ssid_count}/{NO_SSID_THRESHOLD}) – warte...")
+            return
         if not _ap_mode_active:
             print("[INFO] Kein WLAN – AP-Modus wird gestartet.")
             start_ap_mode()
         else:
             set_status("no_wifi")
         return
+
+    _no_ssid_count = 0
 
     # WLAN verbunden
     wg_required = is_wg_required(ssid)
