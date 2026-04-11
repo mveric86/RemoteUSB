@@ -59,9 +59,11 @@ def is_wg_required(ssid):
         for net in networks:
             if net.get("ssid") == ssid:
                 return net.get("use_wireguard", True)
+        # SSID nicht in der Liste – AP-Modus starten
+        return None
     except Exception:
-        pass
-    return True  # Standardmäßig WireGuard verwenden
+        # Keine networks.json – AP-Modus starten
+        return None
 
 def is_wg_connected():
     """Prüft ob WireGuard-Verbindung aktiv ist (Ping auf WG-Server)."""
@@ -133,6 +135,12 @@ def check():
         stop_ap_mode()
 
     wg_required = is_wg_required(ssid)
+
+    # SSID unbekannt oder keine Konfiguration → AP-Modus
+    if wg_required is None:
+        print(f"[INFO] SSID '{ssid}' nicht in networks.json – AP-Modus wird gestartet.")
+        start_ap_mode()
+        return
 
     # WireGuard nicht benötigt (z.B. Heimnetz)
     if not wg_required:

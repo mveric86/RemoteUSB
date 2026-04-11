@@ -165,6 +165,7 @@ _last_status = None
 def poll_status():
     """Liest die Statusdatei alle 2 Sekunden und setzt die LED entsprechend."""
     global _last_status
+    time.sleep(2)  # Warten bis Startanimation fertig
     while True:
         try:
             with open(STATUS_FILE) as f:
