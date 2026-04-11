@@ -228,11 +228,17 @@ signal.signal(signal.SIGINT,  cleanup)
 # AP-Modus erzwingen (Signal von gpio_handler via systemd)
 # -----------------------------------------------------------------------------
 def force_ap_mode(signum=None, frame=None):
+    """AP-Modus-Taster: toggelt zwischen Force-AP und normalem Betrieb."""
     global _force_ap
-    print("[INFO] AP-Modus wird erzwungen (Taster) – bleibt bis Reboot.")
-    _force_ap = True
-    stop_ap_mode()  # reset falls bereits aktiv
-    start_ap_mode()
+    if _force_ap:
+        print("[INFO] AP-Modus-Toggle AUS – kehre zu normalem Betrieb zurück.")
+        _force_ap = False
+        stop_ap_mode()
+        # check() läuft beim nächsten Intervall und setzt den richtigen Status
+    else:
+        print("[INFO] AP-Modus-Toggle AN – Taster erzwungen.")
+        _force_ap = True
+        start_ap_mode()
 
 signal.signal(signal.SIGUSR1, force_ap_mode)
 
