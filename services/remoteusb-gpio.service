@@ -1,6 +1,6 @@
 [Unit]
 Description=RemoteUSB GPIO Handler (LED + Taster)
-After=multi-user.target
+DefaultDependencies=yes
 
 [Service]
 Type=simple
