@@ -118,6 +118,12 @@ def start_ap_mode():
         return
     print("[INFO] AP-Modus wird gestartet...")
     stop_wireguard()
+    # wlan0 aus NetworkManager lösen damit hostapd es übernehmen kann
+    subprocess.run(["nmcli", "device", "set", "wlan0", "managed", "no"],
+                   capture_output=True)
+    subprocess.run(["ip", "addr", "flush", "dev", "wlan0"], capture_output=True)
+    subprocess.run(["ip", "addr", "add", "192.168.4.1/24", "dev", "wlan0"],
+                   capture_output=True)
     subprocess.run(["systemctl", "start", "hostapd"])
     subprocess.run(["systemctl", "start", "dnsmasq"])
     subprocess.run(["systemctl", "start", "remoteusb-webinterface.service"])
@@ -132,6 +138,9 @@ def stop_ap_mode():
     subprocess.run(["systemctl", "stop", "remoteusb-webinterface.service"])
     subprocess.run(["systemctl", "stop", "dnsmasq"])
     subprocess.run(["systemctl", "stop", "hostapd"])
+    subprocess.run(["ip", "addr", "flush", "dev", "wlan0"], capture_output=True)
+    subprocess.run(["nmcli", "device", "set", "wlan0", "managed", "yes"],
+                   capture_output=True)
     _ap_mode_active = False
 
 # -----------------------------------------------------------------------------
@@ -139,10 +148,19 @@ def stop_ap_mode():
 # -----------------------------------------------------------------------------
 _wg_error_since = None
 _no_ssid_count = 0
+_force_ap = False   # wird vom AP-Taster (SIGUSR1) gesetzt, bleibt bis Reboot
 NO_SSID_THRESHOLD = 3  # 3 aufeinanderfolgende Fehlschläge (~15s) vor AP-Modus
 
 def check():
     global _wg_error_since, _ap_mode_active, _no_ssid_count
+
+    # AP-Modus wurde per Taster erzwungen – nicht verlassen
+    if _force_ap:
+        if not _ap_mode_active:
+            start_ap_mode()
+        else:
+            set_status("ap_mode")
+        return
 
     ssid = get_current_ssid()
 
@@ -204,7 +222,9 @@ signal.signal(signal.SIGINT,  cleanup)
 # AP-Modus erzwingen (Signal von gpio_handler via systemd)
 # -----------------------------------------------------------------------------
 def force_ap_mode(signum=None, frame=None):
-    print("[INFO] AP-Modus wird erzwungen (Taster).")
+    global _force_ap
+    print("[INFO] AP-Modus wird erzwungen (Taster) – bleibt bis Reboot.")
+    _force_ap = True
     stop_ap_mode()  # reset falls bereits aktiv
     start_ap_mode()
 

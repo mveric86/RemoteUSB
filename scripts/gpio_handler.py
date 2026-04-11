@@ -135,9 +135,14 @@ btn_ap       = Button(PIN_BTN_AP,       hold_time=BUTTON_HOLD_TIME, pull_up=True
 btn_shutdown = Button(PIN_BTN_SHUTDOWN, hold_time=BUTTON_HOLD_TIME, pull_up=True)
 
 def on_ap_held():
-    """AP-Modus erzwingen."""
+    """AP-Modus erzwingen – signalisiert dem Watchdog per SIGUSR1."""
     print("[INFO] AP-Taster gehalten – AP-Modus wird erzwungen.")
-    subprocess.run(["systemctl", "start", "remoteusb-apmode.service"])
+    try:
+        with open("/run/remoteusb/watchdog.pid") as f:
+            wd_pid = int(f.read().strip())
+        os.kill(wd_pid, signal.SIGUSR1)
+    except Exception as e:
+        print(f"[WARN] Konnte Watchdog nicht signalisieren: {e}")
 
 def on_shutdown_held():
     """Sauberer Shutdown."""
