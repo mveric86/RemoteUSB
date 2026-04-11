@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RemoteUSB</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600&display=swap');
+  /* Keine externen Ressourcen – im AP-Modus ohne Internet. System-Fonts. */
 
   :root {
     --bg:       #0d0f14;
@@ -18,8 +18,8 @@
     --yellow:   #ffd700;
     --text:     #c8d0e0;
     --text-dim: #5a6380;
-    --mono:     'Share Tech Mono', monospace;
-    --sans:     'Barlow', sans-serif;
+    --mono:     ui-monospace, 'Courier New', monospace;
+    --sans:     system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }

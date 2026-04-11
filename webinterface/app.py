@@ -97,8 +97,13 @@ def save_wg_config(content):
 # -----------------------------------------------------------------------------
 # Routen – Hauptseite
 # -----------------------------------------------------------------------------
-@app.route("/")
-def index():
+# Captive-Portal-Catch-all: alle unbekannten Hosts/Pfade auf die Hauptseite.
+# dnsmasq leitet im AP-Modus sämtliche DNS-Anfragen auf 192.168.4.1 um,
+# also schlagen Captive-Portal-Checks der Handys (connectivitycheck.*,
+# captive.apple.com, msftconnecttest.*) hier auf. Ohne Catch-all → 404 → hängt.
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def index(path):
     return render_template("index.html")
 
 # -----------------------------------------------------------------------------
