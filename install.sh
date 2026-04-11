@@ -109,8 +109,13 @@ fi
 log "Schritt 5/8: Scripts deployen..."
 cp "$SCRIPT_DIR/scripts/watchdog.py"         /usr/local/bin/remoteusb-watchdog.py
 cp "$SCRIPT_DIR/scripts/gpio_handler.py"     /usr/local/bin/remoteusb-gpio.py
+cp "$SCRIPT_DIR/scripts/persist.sh"          /usr/local/bin/remoteusb-persist.sh
 chmod +x /usr/local/bin/remoteusb-watchdog.py
 chmod +x /usr/local/bin/remoteusb-gpio.py
+chmod +x /usr/local/bin/remoteusb-persist.sh
+
+# Persistence-Layer einmalig initialisieren (Image anlegen + seeden)
+/usr/local/bin/remoteusb-persist.sh
 
 # Webinterface deployen
 mkdir -p /opt/remoteusb/webinterface
@@ -138,6 +143,7 @@ WG_TIMEOUT=$WG_TIMEOUT
 EOF
 
 systemctl daemon-reload
+systemctl enable remoteusb-persist.service
 systemctl enable remoteusb-watchdog.service
 systemctl enable remoteusb-gpio.service
 systemctl enable remoteusb-usbipd.service

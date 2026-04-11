@@ -1,0 +1,13 @@
+[Unit]
+Description=RemoteUSB Persistence Layer (loop-backed config)
+DefaultDependencies=yes
+After=local-fs.target
+Before=NetworkManager.service wg-quick@wg0.service remoteusb-gpio.service remoteusb-watchdog.service remoteusb-webinterface.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/remoteusb-persist.sh
+
+[Install]
+WantedBy=multi-user.target
