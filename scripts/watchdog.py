@@ -130,20 +130,19 @@ def check():
             set_status("no_wifi")
         return
 
-    # WLAN verbunden – AP-Modus beenden falls aktiv und SSID bekannt
+    # WLAN verbunden
     wg_required = is_wg_required(ssid)
 
-    if _ap_mode_active:
-        if wg_required is None:
-            # SSID immer noch unbekannt – AP-Modus bleibt aktiv
-            return
-        stop_ap_mode()
-
-    # SSID unbekannt oder keine Konfiguration → AP-Modus
+    # SSID unbekannt → AP-Modus starten falls nicht bereits aktiv
     if wg_required is None:
-        print(f"[INFO] SSID '{ssid}' nicht in networks.json – AP-Modus wird gestartet.")
-        start_ap_mode()
+        if not _ap_mode_active:
+            print(f"[INFO] SSID '{ssid}' nicht in networks.json – AP-Modus wird gestartet.")
+            start_ap_mode()
         return
+
+    # SSID bekannt – AP-Modus beenden falls aktiv
+    if _ap_mode_active:
+        stop_ap_mode()
 
     # WireGuard nicht benötigt (z.B. Heimnetz)
     if not wg_required:
