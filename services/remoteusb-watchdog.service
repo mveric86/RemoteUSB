@@ -1,7 +1,7 @@
 [Unit]
 Description=RemoteUSB Watchdog (WLAN + WireGuard Überwachung)
-After=network.target remoteusb-gpio.service
-Wants=remoteusb-gpio.service
+After=network-online.target remoteusb-gpio.service
+Wants=network-online.target remoteusb-gpio.service
 
 [Service]
 Type=simple
