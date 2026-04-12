@@ -176,8 +176,11 @@ def load_wg_config():
         return ""
 
 def save_wg_config(content):
+    # DNS-Zeilen entfernen – auf Trixie/NM fehlt resolvconf,
+    # wg-quick bricht sonst ab und reißt das Interface wieder runter.
+    lines = [l for l in content.splitlines() if not l.strip().startswith("DNS")]
     with open(WG_CONFIG_FILE, "w") as f:
-        f.write(content)
+        f.write("\n".join(lines) + "\n")
 
 # -----------------------------------------------------------------------------
 # Routen – Hauptseite
