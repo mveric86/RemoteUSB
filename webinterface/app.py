@@ -187,12 +187,40 @@ def save_wg_config(content):
         f.write("\n".join(lines) + "\n")
 
 # -----------------------------------------------------------------------------
+# Captive-Portal-Erkennung unterdrücken
+# -----------------------------------------------------------------------------
+# iOS/Android/Windows prüfen bei WLAN-Verbindung ob Internet da ist.
+# Wenn wir die erwartete Antwort liefern, denkt das Gerät "online" und
+# zeigt KEIN Captive-Portal-Sheet → User kann SSH/Browser frei nutzen.
+# Ohne das trennt z.B. iOS die Verbindung sobald man das Portal-Sheet
+# schließt um eine andere App (SSH-Client) zu öffnen.
+
+@app.before_request
+def handle_captive_portal():
+    """Erkennt Captive-Portal-Checks anhand des Host-Headers und
+    liefert die vom OS erwartete Erfolgs-Antwort."""
+    from flask import Response
+    host = request.host.split(":")[0]
+    # Anfragen an unsere eigene IP/localhost normal durchlassen
+    if host in ("192.168.4.1", "localhost", "127.0.0.1"):
+        return None
+    # Apple: erwartet HTML mit <TITLE>Success</TITLE>
+    if "apple" in host or request.path == "/hotspot-detect.html":
+        return Response(
+            "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>",
+            content_type="text/html")
+    # Android: erwartet HTTP 204
+    if "gstatic" in host or "google" in host or request.path == "/generate_204":
+        return Response("", status=204)
+    # Windows: erwartet "Microsoft Connect Test"
+    if "msftconnecttest" in host or request.path == "/connecttest.txt":
+        return Response("Microsoft Connect Test", content_type="text/plain")
+    # Unbekannter externer Host → auch als "online" durchwinken
+    return Response("", status=204)
+
+# -----------------------------------------------------------------------------
 # Routen – Hauptseite
 # -----------------------------------------------------------------------------
-# Captive-Portal-Catch-all: alle unbekannten Hosts/Pfade auf die Hauptseite.
-# dnsmasq leitet im AP-Modus sämtliche DNS-Anfragen auf 192.168.4.1 um,
-# also schlagen Captive-Portal-Checks der Handys (connectivitycheck.*,
-# captive.apple.com, msftconnecttest.*) hier auf. Ohne Catch-all → 404 → hängt.
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def index(path):
