@@ -128,8 +128,12 @@ def _apply_nm(networks):
             "ifname", "wlan0",
             "con-name", con_name,
             "ssid", ssid,
-            "wifi-sec.key-mgmt", "wpa-psk",
-            "wifi-sec.psk", net["password"],
+        ]
+        # Offene Netze (kein Passwort) brauchen keine wifi-sec Parameter
+        if net.get("password"):
+            cmd += ["wifi-sec.key-mgmt", "wpa-psk",
+                    "wifi-sec.psk", net["password"]]
+        cmd += [
             "connection.autoconnect", "no" if net.get("disabled") else "yes",
             "connection.autoconnect-priority", str(net.get("priority", 1)),
         ]
