@@ -72,6 +72,21 @@ def is_wg_required(ssid):
         pass
     return False
 
+def has_wifi_configured():
+    """Prüft ob NetworkManager mindestens eine WLAN-Verbindung kennt.
+    Wenn ja, ist der Pi 'vorkonfiguriert' und soll bei Verbindungsproblemen
+    NICHT automatisch in den AP-Modus fallen – nur per Taster.
+    """
+    try:
+        result = subprocess.run(
+            ["nmcli", "-t", "-f", "TYPE", "connection", "show"],
+            capture_output=True, text=True, timeout=5
+        )
+        return any(line.strip() == "802-11-wireless"
+                   for line in result.stdout.splitlines())
+    except Exception:
+        return False
+
 def is_wg_connected():
     """Prüft ob WireGuard-Verbindung aktiv ist (Ping auf WG-Server)."""
     try:
@@ -170,17 +185,24 @@ def check():
 
     ssid = get_current_ssid()
 
-    # Kein WLAN – erst nach mehreren Fehlschlägen in Folge reagieren
+    # Kein WLAN verbunden
+    # Im AP-Modus liefert iwgetid leer weil wlan0 im Master-Mode ist –
+    # Status NICHT zu no_wifi ändern, sonst LED rot statt gelb blinkend.
     if not ssid:
-        _no_ssid_count += 1
-        if _no_ssid_count < NO_SSID_THRESHOLD:
-            print(f"[WARN] Kein SSID ({_no_ssid_count}/{NO_SSID_THRESHOLD}) – warte...")
+        if _ap_mode_active:
+            set_status("ap_mode")
             return
-        if not _ap_mode_active:
-            print("[INFO] Kein WLAN – AP-Modus wird gestartet.")
+        # AP-Fallback nur wenn NetworkManager GAR KEIN WLAN kennt
+        # (Ersteinrichtung). Sonst LED rot, aber kein Modus-Wechsel –
+        # sonst kommt man remote nie wieder an den Pi ran.
+        set_status("no_wifi")
+        if not has_wifi_configured():
+            _no_ssid_count += 1
+            if _no_ssid_count < NO_SSID_THRESHOLD:
+                print(f"[INFO] Kein WLAN konfiguriert ({_no_ssid_count}/{NO_SSID_THRESHOLD}) – Ersteinrichtung...")
+                return
+            print("[INFO] Keine WLAN-Konfiguration – AP-Modus für Ersteinrichtung.")
             start_ap_mode()
-        else:
-            set_status("no_wifi")
         return
 
     _no_ssid_count = 0
@@ -205,14 +227,13 @@ def check():
         set_status("wg_connected")
         _wg_error_since = None
     else:
+        # Kein AP-Fallback mehr – WG-Fehler löst nur LED gelb aus,
+        # Tunnel wird bei jedem Intervall erneut geprüft. Für remote
+        # deployte Geräte ist AP-Modus hier kontraproduktiv.
         set_status("wg_error")
         if _wg_error_since is None:
             _wg_error_since = time.time()
-            print(f"[WARN] WireGuard nicht erreichbar – warte {WG_TIMEOUT}s...")
-        elif time.time() - _wg_error_since >= WG_TIMEOUT:
-            print("[WARN] WireGuard Timeout – AP-Modus wird gestartet.")
-            start_ap_mode()
-            _wg_error_since = None
+            print("[WARN] WireGuard nicht erreichbar – Retry läuft.")
 
 # -----------------------------------------------------------------------------
 # Sauberes Beenden
