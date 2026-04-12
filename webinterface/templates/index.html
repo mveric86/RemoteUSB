@@ -446,19 +446,26 @@
   </div>
 
   <div style="margin-top:24px">
-    <div class="section-title">QR-Code Import</div>
+    <div class="section-title">Import</div>
     <div class="card">
       <p style="font-size:0.8rem;color:var(--text-dim);margin-bottom:14px;">
-        WireGuard-Konfiguration per QR-Code importieren (z.B. aus der WireGuard-App exportiert).
-        Bild auswählen oder foto aufnehmen.
+        WireGuard-Konfiguration per QR-Code-Bild oder <code style="color:var(--accent)">.conf</code>-Datei importieren.
       </p>
-      <input type="file" id="qr-file" accept="image/*" capture="environment"
+
+      <input type="file" id="qr-file" accept="image/*"
              style="display:none" onchange="uploadQR(this)">
-      <button class="btn btn-secondary" onclick="document.getElementById('qr-file').click()" style="width:100%">
-        📷 QR-Code Bild auswählen / fotografieren
+      <button class="btn btn-secondary" onclick="document.getElementById('qr-file').click()" style="width:100%;margin-bottom:8px">
+        📷 QR-Code Bild hochladen
       </button>
+
+      <input type="file" id="conf-file" accept=".conf,text/plain"
+             style="display:none" onchange="uploadConf(this)">
+      <button class="btn btn-secondary" onclick="document.getElementById('conf-file').click()" style="width:100%">
+        📄 .conf-Datei hochladen
+      </button>
+
       <p style="font-size:0.72rem;color:var(--text-dim);margin-top:10px;">
-        Hinweis: Live-Kamera-Scan erfordert HTTPS. Bild-Upload funktioniert auch über HTTP.
+        <strong>Hinweis:</strong> Auf iOS/Android öffnet das Verbinden mit dem AP-WLAN eine Captive-Portal-Ansicht – dort ist Datei-Upload vom System gesperrt. Um hochzuladen, verlasse die Portal-Ansicht (iOS: „Abbrechen"/„Anmelden später" → Safari öffnen → <code>192.168.4.1</code>; Android: Menü → „Im Browser öffnen") und rufe diese Seite im normalen Browser auf.
       </p>
     </div>
   </div>
@@ -759,6 +766,33 @@ async function uploadQR(input) {
   };
   reader.readAsDataURL(file);
   input.value = ''; // Reset für erneuten Upload
+}
+
+async function uploadConf(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const config = e.target.result;
+    try {
+      const r = await fetch('/api/wireguard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config })
+      });
+      const d = await r.json();
+      if (d.ok !== false) {
+        document.getElementById('wg-config').value = config;
+        toast('WireGuard-Konfiguration importiert');
+      } else {
+        toast('Fehler: ' + (d.error || ''), true);
+      }
+    } catch(e) {
+      toast('Fehler beim Conf-Import', true);
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
 }
 
 // -----------------------------------------------------------------------------
