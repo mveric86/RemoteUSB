@@ -112,11 +112,13 @@ cp "$SCRIPT_DIR/scripts/gpio_handler.py"     /usr/local/bin/remoteusb-gpio.py
 cp "$SCRIPT_DIR/scripts/persist.sh"          /usr/local/bin/remoteusb-persist.sh
 cp "$SCRIPT_DIR/scripts/usb-autobind.sh"     /usr/local/bin/remoteusb-usb-autobind.sh
 cp "$SCRIPT_DIR/scripts/usb-unbind.sh"       /usr/local/bin/remoteusb-usb-unbind.sh
+cp "$SCRIPT_DIR/scripts/usb-release.sh"      /usr/local/bin/remoteusb-usb-release.sh
 chmod +x /usr/local/bin/remoteusb-watchdog.py
 chmod +x /usr/local/bin/remoteusb-gpio.py
 chmod +x /usr/local/bin/remoteusb-persist.sh
 chmod +x /usr/local/bin/remoteusb-usb-autobind.sh
 chmod +x /usr/local/bin/remoteusb-usb-unbind.sh
+chmod +x /usr/local/bin/remoteusb-usb-release.sh
 
 # Udev-Rule für USB/IP-Autobind
 cp "$SCRIPT_DIR/udev/99-remoteusb-autobind.rules" /etc/udev/rules.d/

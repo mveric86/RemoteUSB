@@ -145,14 +145,39 @@ def on_ap_held():
         print(f"[WARN] Konnte Watchdog nicht signalisieren: {e}")
 
 def on_shutdown_held():
-    """Sauberer Shutdown."""
+    """Langer Druck (≥ BUTTON_HOLD_TIME): Sauberer Shutdown."""
+    global _shutdown_was_held
+    _shutdown_was_held = True
     print("[INFO] Shutdown-Taster gehalten – System wird heruntergefahren.")
     status_shutdown()
     time.sleep(2)
     subprocess.run(["shutdown", "-h", "now"])
 
-btn_ap.when_held       = on_ap_held
-btn_shutdown.when_held = on_shutdown_held
+_shutdown_was_held = False
+
+def on_shutdown_released():
+    """Kurzer Druck (< BUTTON_HOLD_TIME): alle USB/IP-Sessions freigeben.
+    Attached Clients werden gekickt, Geräte bleiben exportierbar."""
+    global _shutdown_was_held
+    if _shutdown_was_held:
+        _shutdown_was_held = False
+        return
+    print("[INFO] Shutdown-Taster kurz gedrückt – USB-Sessions freigeben.")
+    subprocess.run(["/usr/local/bin/remoteusb-usb-release.sh"])
+    # Kurzer cyan-Flash als Bestätigung, dann zurück zum aktuellen Status
+    import threading
+    def flash():
+        _apply_brightness(0, 1, 1)
+        time.sleep(0.2)
+        _leds_off()
+        # poll_status setzt beim nächsten Tick den richtigen Status zurück
+        global _last_status
+        _last_status = None
+    threading.Thread(target=flash, daemon=True).start()
+
+btn_ap.when_held           = on_ap_held
+btn_shutdown.when_held     = on_shutdown_held
+btn_shutdown.when_released = on_shutdown_released
 
 # -----------------------------------------------------------------------------
 # Sauberes Beenden
