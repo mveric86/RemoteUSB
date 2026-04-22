@@ -84,15 +84,17 @@ list_output=$("$USBIP" list -r "$HOST" 2>&1) || {
 
 declare -a ENTRIES
 current_busid=""; current_vidpid=""; current_name=""
+re_busid='^[[:space:]]*-[[:space:]]busid[[:space:]]+([^ ]+)[[:space:]]+\(([^)]+)\)'
+re_name='^[[:space:]]+[^:]+:[[:space:]]+(.+)$'
 while IFS= read -r line; do
-    if [[ "$line" =~ ^[[:space:]]*-[[:space:]]busid[[:space:]]([^ ]+)[[:space:]]\(([^)]+)\) ]]; then
+    if [[ "$line" =~ $re_busid ]]; then
         if [ -n "$current_busid" ]; then
             ENTRIES+=("$current_busid|$current_vidpid|$current_name")
         fi
         current_busid="${BASH_REMATCH[1]}"
         current_vidpid="${BASH_REMATCH[2]}"
         current_name=""
-    elif [[ -n "$current_busid" && "$line" =~ ^[[:space:]]+[^:]+:[[:space:]](.+)$ ]]; then
+    elif [ -n "$current_busid" ] && [[ "$line" =~ $re_name ]]; then
         [ -z "$current_name" ] && current_name="${BASH_REMATCH[1]}"
     fi
 done <<< "$list_output"
