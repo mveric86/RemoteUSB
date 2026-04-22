@@ -186,13 +186,18 @@ cleanup() {
         echo
         echo "[detach] port $port"
         sudo "$USBIP" detach -p "$port" >/dev/null 2>&1 || true
-    else
-        echo
-        echo "[warn] konnte Port für busid=$BUSID nicht finden – manuell detachen mit 'sudo $USBIP port'" >&2
     fi
+    # Kein Warning wenn Port fehlt – Gerät wurde server-seitig released
+    # (z.B. Short-Press am Pi) und ist schon sauber weg.
 }
 trap cleanup EXIT
 
 echo "[ok] attached. Press Ctrl-C to detach."
-# Blockieren bis Signal
-while sleep 3600; do :; done
+# Blockieren bis Signal ODER server-seitig gekickt
+while true; do
+    sleep 2
+    if ! sudo "$USBIP" port 2>/dev/null | grep -q "/$BUSID$"; then
+        echo "[info] device released by server, exiting."
+        exit 0
+    fi
+done
