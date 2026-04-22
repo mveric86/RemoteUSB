@@ -289,11 +289,16 @@ reicht, EXIT fired nach INT/TERM ohnehin.
   `config/default.conf` (aktuell alle 100 %) könnten besser vor-kalibriert
   werden (z.B. Grün/Blau auf 40, Rot bei 100).
 
-## Hinweise für die Deploy-Arbeit
+## Nutzer-spezifische Informationen
 
-Adressen und Zugangsdaten des konkreten Pi sind Nutzer-spezifisch und werden
-**nicht** hier dokumentiert. Bei einer neuen Session fragt Claude den Nutzer
-oder findet sie im Chat-Kontext.
+Konkrete IPs, SSH-Zugangsdaten, Git-Remote-URLs und ähnliche Infrastruktur-
+Details stehen in **`CLAUDE.local.md`** (gitignored). Diese Datei solltest du
+beim ersten Öffnen des Projekts als neue Claude-Session lesen.
+
+Falls die Datei fehlt: `cp CLAUDE.local.md.example CLAUDE.local.md` und vom
+Nutzer ausfüllen lassen, oder einzeln erfragen was du brauchst.
+
+## Hinweise für die Deploy-Arbeit
 
 Allgemein nützliche Hinweise:
 

@@ -4,3 +4,6 @@ wg0.conf
 *.key
 *.pem
 .claude/
+
+# Lokale Nutzer-spezifische Claude-Notizen (IPs, Zugangsdaten, etc.)
+CLAUDE.local.md

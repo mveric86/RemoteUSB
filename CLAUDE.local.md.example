@@ -1,0 +1,44 @@
+# CLAUDE.local.md – Beispiel-Template
+
+Diese Datei ist eine Vorlage für lokale, nutzer-spezifische Claude-Kontext-
+Informationen (IPs, Zugangsdaten, persönliche Infrastruktur). Die echte Datei
+`CLAUDE.local.md` ist `.gitignore`'d und wird **nicht** committed.
+
+**Beim Klonen:**
+```bash
+cp CLAUDE.local.md.example CLAUDE.local.md
+# Anpassen mit deinen Werten
+```
+
+Claude liest `CLAUDE.local.md` bei künftigen Sessions als zusätzlichen Kontext
+(Claude Code erkennt `.local.md`-Dateien neben `CLAUDE.md` automatisch).
+
+---
+
+## Hardware & Zugang
+
+- **Pi im Heimnetz**: `admin@<HEIMNETZ-IP>` (z.B. `192.168.178.32`)
+- **Pi über WireGuard**: `admin@<WG-TUNNEL-IP>` (z.B. `192.168.199.1`)
+- **SSH-Passwort**: siehe lokaler Passwort-Manager (nicht hier speichern)
+- **SSH-Zugang in Dev-Sessions**: typischerweise `sshpass -p '<pw>' ssh admin@<ip>`
+  als Workaround, falls keine Key-Auth eingerichtet ist
+
+## WLAN-Umgebung
+
+- **Heimnetz**: SSID `<ssid>`, Subnet `192.168.x.0/24`
+- **Gast-/Alternativ-Netze** relevant für Tests: `<namen>`
+- **WG-Gegenstelle**: Fritzbox unter DynDNS `<myfritz-domain>`
+
+## Git-Forge
+
+- **Primäres Remote** (wo `git push` hingeht): `<url>`
+  (z.B. `ssh://git@...:2222/<user>/RemoteUSB.git`)
+- **Public-Mirror**: `https://github.com/<user>/RemoteUSB`
+  (wird vom primären Remote automatisch gespiegelt; Mirror-Delay ~1–2 min,
+  bei Cache-Tests Cache-Bust per `?$(date +%s)` nutzen)
+
+## Sonstige Hinweise
+
+- Falls eine bestimmte VM oder ein LXC als Standard-Client fürs USB/IP-Testen
+  genutzt wird: hier notieren, wo er erreichbar ist und welche Kernel-Version
+  er fährt (relevant für `/usr/lib/linux-tools/<kernel>/usbip`-Pfad).
