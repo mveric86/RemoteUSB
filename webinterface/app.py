@@ -18,6 +18,7 @@ app = Flask(__name__)
 NETWORKS_FILE   = "/etc/remoteusb/networks.json"
 SETTINGS_FILE   = "/etc/remoteusb/settings.conf"
 WG_CONFIG_FILE  = "/etc/wireguard/wg0.conf"
+USB_EXCLUDE_FILE = "/etc/remoteusb/usb-exclude"
 
 # -----------------------------------------------------------------------------
 # Hilfsfunktionen – Netzwerke
@@ -363,6 +364,106 @@ def connect():
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+# -----------------------------------------------------------------------------
+# Routen – USB/IP Geräteverwaltung
+# -----------------------------------------------------------------------------
+def _load_usb_exclude():
+    try:
+        with open(USB_EXCLUDE_FILE) as f:
+            return {l.strip() for l in f if l.strip()}
+    except Exception:
+        return set()
+
+def _save_usb_exclude(busids):
+    with open(USB_EXCLUDE_FILE, "w") as f:
+        for b in sorted(busids):
+            f.write(b + "\n")
+
+def _list_usb_devices():
+    """Alle am Pi sichtbaren USB-Geräte (außer Hubs) mit Bind-Status."""
+    exclude = _load_usb_exclude()
+    bound = set()
+    try:
+        for entry in os.listdir("/sys/bus/usb/drivers/usbip-host/"):
+            if entry not in ("bind", "unbind", "module", "uevent"):
+                bound.add(entry)
+    except Exception:
+        pass
+
+    devices = []
+    try:
+        result = subprocess.run(
+            ["lsusb"], capture_output=True, text=True, timeout=5
+        )
+        # Mapping lsusb → sysfs für bDeviceClass + busid
+        for path in sorted(subprocess.run(
+            ["sh", "-c", "ls -d /sys/bus/usb/devices/*/ 2>/dev/null"],
+            capture_output=True, text=True).stdout.split()):
+            busid = os.path.basename(path.rstrip("/"))
+            if ":" in busid:   # interface entries – skip
+                continue
+            try:
+                with open(os.path.join(path, "bDeviceClass")) as f:
+                    dclass = f.read().strip()
+                if dclass == "09":   # hub
+                    continue
+                with open(os.path.join(path, "idVendor")) as f:
+                    vid = f.read().strip()
+                with open(os.path.join(path, "idProduct")) as f:
+                    pid = f.read().strip()
+                try:
+                    with open(os.path.join(path, "product")) as f:
+                        product = f.read().strip()
+                except Exception:
+                    product = ""
+                try:
+                    with open(os.path.join(path, "manufacturer")) as f:
+                        manuf = f.read().strip()
+                except Exception:
+                    manuf = ""
+                devices.append({
+                    "busid":        busid,
+                    "vendor_id":    vid,
+                    "product_id":   pid,
+                    "manufacturer": manuf,
+                    "product":      product,
+                    "bound":        busid in bound,
+                    "excluded":     busid in exclude,
+                })
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return devices
+
+@app.route("/api/usb", methods=["GET"])
+def list_usb():
+    return jsonify(_list_usb_devices())
+
+@app.route("/api/usb/<busid>/toggle", methods=["POST"])
+def toggle_usb(busid):
+    """Toggle bind/excluded für ein Gerät. Bei excluded=True wird
+    auch unbind ausgeführt, sonst bind."""
+    exclude = _load_usb_exclude()
+    if busid in exclude:
+        exclude.discard(busid)
+        _save_usb_exclude(exclude)
+        subprocess.run(["/usr/local/bin/remoteusb-usb-autobind.sh"],
+                       capture_output=True)
+    else:
+        exclude.add(busid)
+        _save_usb_exclude(exclude)
+        subprocess.run(["/usr/local/bin/remoteusb-usb-unbind.sh", busid],
+                       capture_output=True)
+    return jsonify({"ok": True})
+
+@app.route("/api/usb/release", methods=["POST"])
+def release_usb():
+    """Alle attached Client-Sessions trennen (wie Short-Press am Taster)."""
+    subprocess.run(["/usr/local/bin/remoteusb-usb-release.sh"],
+                   capture_output=True)
+    return jsonify({"ok": True})
 
 # -----------------------------------------------------------------------------
 # Main

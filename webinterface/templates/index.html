@@ -381,6 +381,7 @@
   <button class="active" onclick="showTab('networks')">Netzwerke</button>
   <button onclick="showTab('led')">LED</button>
   <button onclick="showTab('wireguard')">WireGuard</button>
+  <button onclick="showTab('usb')">USB</button>
 </nav>
 
 <!-- ========== TAB: NETZWERKE ========== -->
@@ -471,6 +472,29 @@
   </div>
 </div>
 
+<!-- ========== TAB: USB ========== -->
+<div id="tab-usb" class="tab-content">
+  <div class="section-title">Angeschlossene Geräte</div>
+  <div class="card">
+    <p style="font-size:0.8rem;color:var(--text-dim);margin-bottom:12px;">
+      Alle USB-Geräte werden automatisch für USB/IP exportiert. Mit dem
+      Schalter kannst du einzelne Geräte vom Export ausschließen
+      (z.B. lokal genutzte Tastaturen oder Hardware-Keys).
+    </p>
+    <div id="usb-list">Lade…</div>
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn btn-secondary" onclick="loadUsb()">⟳ Neu laden</button>
+      <button class="btn btn-secondary" onclick="releaseUsbSessions()">
+        🔌 Alle Sessions freigeben
+      </button>
+    </div>
+    <p style="font-size:0.72rem;color:var(--text-dim);margin-top:10px;">
+      <strong>Sessions freigeben</strong> trennt attached Clients – identisch
+      zum kurzen Druck auf den Shutdown-Taster.
+    </p>
+  </div>
+</div>
+
 <!-- ========== MODAL: Netzwerk hinzufügen / bearbeiten ========== -->
 <div class="modal-overlay" id="modal">
   <div class="modal">
@@ -537,6 +561,7 @@ function showTab(name) {
   if (name === 'networks') loadNetworks();
   if (name === 'led')      loadLed();
   if (name === 'wireguard') loadWg();
+  if (name === 'usb')       loadUsb();
 }
 
 // -----------------------------------------------------------------------------
@@ -793,6 +818,67 @@ async function uploadConf(input) {
   };
   reader.readAsText(file);
   input.value = '';
+}
+
+// -----------------------------------------------------------------------------
+// USB
+// -----------------------------------------------------------------------------
+async function loadUsb() {
+  const root = document.getElementById('usb-list');
+  root.textContent = 'Lade…';
+  try {
+    const r = await fetch('/api/usb');
+    const devices = await r.json();
+    if (!devices.length) {
+      root.innerHTML = '<div style="color:var(--text-dim);font-size:0.85rem">Keine USB-Geräte angeschlossen.</div>';
+      return;
+    }
+    root.innerHTML = '';
+    for (const d of devices) {
+      const exported = d.bound && !d.excluded;
+      const card = document.createElement('div');
+      card.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px;border:1px solid var(--border);border-radius:4px;margin-bottom:8px;background:var(--bg)';
+      const title = d.product || `USB ${d.vendor_id}:${d.product_id}`;
+      const meta  = `${d.manufacturer ? d.manufacturer + ' · ' : ''}${d.vendor_id}:${d.product_id} · busid ${d.busid}`;
+      card.innerHTML = `
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600">${title}</div>
+          <div style="font-size:0.72rem;color:var(--text-dim)">${meta}</div>
+          <div style="font-size:0.72rem;margin-top:4px">
+            <span class="badge ${exported ? 'badge-wg' : 'badge-nowg'}">
+              ${exported ? 'exportiert' : (d.excluded ? 'ausgeschlossen' : 'nicht gebunden')}
+            </span>
+          </div>
+        </div>
+        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" ${d.excluded ? '' : 'checked'}
+                 onchange="toggleUsb('${d.busid}')">
+          <span style="font-size:0.8rem">Export</span>
+        </label>`;
+      root.appendChild(card);
+    }
+  } catch (e) {
+    root.textContent = 'Fehler beim Laden: ' + e.message;
+  }
+}
+
+async function toggleUsb(busid) {
+  try {
+    await fetch(`/api/usb/${encodeURIComponent(busid)}/toggle`, { method: 'POST' });
+    await loadUsb();
+  } catch (e) {
+    toast('Fehler: ' + e.message, true);
+  }
+}
+
+async function releaseUsbSessions() {
+  try {
+    await fetch('/api/usb/release', { method: 'POST' });
+    toast('USB-Sessions freigegeben');
+    await loadUsb();
+  } catch (e) {
+    toast('Fehler: ' + e.message, true);
+  }
 }
 
 // -----------------------------------------------------------------------------
