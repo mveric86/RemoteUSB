@@ -191,7 +191,7 @@ cleanup() {
         echo "[warn] konnte Port für busid=$BUSID nicht finden – manuell detachen mit 'sudo $USBIP port'" >&2
     fi
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
 
 echo "[ok] attached. Press Ctrl-C to detach."
 # Blockieren bis Signal
