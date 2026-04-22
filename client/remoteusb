@@ -174,16 +174,21 @@ done
 echo "[attach] $DEV_NAME ($DEV_VID) busid=$BUSID from $HOST"
 sudo "$USBIP" attach -r "$HOST" -b "$BUSID"
 
-# Gerade attachten Port finden
-ATTACHED_PORT=$(sudo "$USBIP" port 2>/dev/null | awk -v id="$BUSID" '
-    /^Port/ { port=$2; sub(":","",port) }
-    $0 ~ id { print port; exit }')
-
 cleanup() {
-    if [ -n "$ATTACHED_PORT" ]; then
+    # Port-Nummer zum Zeitpunkt des Detach suchen, damit wir nicht auf
+    # einen Wert vom Attach-Zeitpunkt angewiesen sind (evtl. noch nicht
+    # im Kernel propagiert).
+    local port
+    port=$(sudo "$USBIP" port 2>/dev/null | awk -v id="$BUSID" '
+        /^Port[[:space:]]+[0-9]+:/ { p=$2; gsub(":","",p); next }
+        index($0, id) { print p; exit }')
+    if [ -n "$port" ]; then
         echo
-        echo "[detach] port $ATTACHED_PORT"
-        sudo "$USBIP" detach -p "$ATTACHED_PORT" >/dev/null 2>&1 || true
+        echo "[detach] port $port"
+        sudo "$USBIP" detach -p "$port" >/dev/null 2>&1 || true
+    else
+        echo
+        echo "[warn] konnte Port für busid=$BUSID nicht finden – manuell detachen mit 'sudo $USBIP port'" >&2
     fi
 }
 trap cleanup EXIT INT TERM
