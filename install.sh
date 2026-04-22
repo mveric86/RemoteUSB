@@ -110,9 +110,17 @@ log "Schritt 5/8: Scripts deployen..."
 cp "$SCRIPT_DIR/scripts/watchdog.py"         /usr/local/bin/remoteusb-watchdog.py
 cp "$SCRIPT_DIR/scripts/gpio_handler.py"     /usr/local/bin/remoteusb-gpio.py
 cp "$SCRIPT_DIR/scripts/persist.sh"          /usr/local/bin/remoteusb-persist.sh
+cp "$SCRIPT_DIR/scripts/usb-autobind.sh"     /usr/local/bin/remoteusb-usb-autobind.sh
+cp "$SCRIPT_DIR/scripts/usb-unbind.sh"       /usr/local/bin/remoteusb-usb-unbind.sh
 chmod +x /usr/local/bin/remoteusb-watchdog.py
 chmod +x /usr/local/bin/remoteusb-gpio.py
 chmod +x /usr/local/bin/remoteusb-persist.sh
+chmod +x /usr/local/bin/remoteusb-usb-autobind.sh
+chmod +x /usr/local/bin/remoteusb-usb-unbind.sh
+
+# Udev-Rule für USB/IP-Autobind
+cp "$SCRIPT_DIR/udev/99-remoteusb-autobind.rules" /etc/udev/rules.d/
+udevadm control --reload-rules
 
 # Persistence-Layer einmalig initialisieren (Image anlegen + seeden)
 /usr/local/bin/remoteusb-persist.sh

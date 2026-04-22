@@ -1,0 +1,13 @@
+# =============================================================================
+# RemoteUSB – USB/IP Autobind Udev Rule
+# Automatisches Bind/Unbind aller USB-Geräte (außer Hubs) für USB/IP-Export.
+# =============================================================================
+
+# Nicht-Hub USB-Geräte beim Anstecken binden. bDeviceClass 09 = Hub.
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", \
+    ATTR{bDeviceClass}!="09", \
+    RUN+="/usr/local/bin/remoteusb-usb-autobind.sh"
+
+# Beim Abziehen unbinden (Cleanup für saubere Liste).
+ACTION=="remove", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", \
+    RUN+="/usr/local/bin/remoteusb-usb-unbind.sh %k"

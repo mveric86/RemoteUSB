@@ -7,7 +7,8 @@ Type=forking
 ExecStartPre=/sbin/modprobe usbip_core
 ExecStartPre=/sbin/modprobe usbip_host
 ExecStart=/usr/sbin/usbipd -D
-ExecStartPost=/bin/sh -c 'sleep 1 && usbip bind --busid=$(usbip list -l | grep -oP "(?<=busid )[^ ]+" | head -1) || true'
+# Bereits angesteckte Geräte nachholen (udev greift nur bei add-Events).
+ExecStartPost=/bin/sh -c 'sleep 1 && /usr/local/bin/remoteusb-usb-autobind.sh || true'
 Restart=always
 RestartSec=5
 
