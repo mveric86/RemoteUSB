@@ -89,22 +89,15 @@ list_output=$("$USBIP" list -r "$HOST" 2>&1) || {
 }
 
 declare -a ENTRIES
-current_busid=""; current_vidpid=""; current_name=""
-re_busid='^[[:space:]]*-[[:space:]]busid[[:space:]]+([^ ]+)[[:space:]]+\(([^)]+)\)'
-re_name='^[[:space:]]+[^:]+:[[:space:]]+(.+)$'
+# Remote-Listing hat Format:
+#        1-1.4: Vendor : Product (vid:pid)
+# Busid beginnt mit Ziffer, dann -Ziffer[.Ziffer…]. (vid:pid) am Zeilenende.
+re_remote='^[[:space:]]+([0-9]+-[0-9.]+):[[:space:]]+(.+)[[:space:]]+\(([0-9a-fA-F]{4}:[0-9a-fA-F]{4})\)[[:space:]]*$'
 while IFS= read -r line; do
-    if [[ "$line" =~ $re_busid ]]; then
-        if [ -n "$current_busid" ]; then
-            ENTRIES+=("$current_busid|$current_vidpid|$current_name")
-        fi
-        current_busid="${BASH_REMATCH[1]}"
-        current_vidpid="${BASH_REMATCH[2]}"
-        current_name=""
-    elif [ -n "$current_busid" ] && [[ "$line" =~ $re_name ]]; then
-        [ -z "$current_name" ] && current_name="${BASH_REMATCH[1]}"
+    if [[ "$line" =~ $re_remote ]]; then
+        ENTRIES+=("${BASH_REMATCH[1]}|${BASH_REMATCH[3]}|${BASH_REMATCH[2]}")
     fi
 done <<< "$list_output"
-[ -n "$current_busid" ] && ENTRIES+=("$current_busid|$current_vidpid|$current_name")
 
 if [ ${#ENTRIES[@]} -eq 0 ]; then
     echo "No exportable devices on $HOST."
