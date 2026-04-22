@@ -149,7 +149,6 @@ EOF
 
 cat > /etc/remoteusb/watchdog.env <<EOF
 WG_PING_TARGET=$WG_PING_TARGET
-WG_TIMEOUT=$WG_TIMEOUT
 EOF
 
 systemctl daemon-reload

@@ -14,8 +14,7 @@ import json
 # -----------------------------------------------------------------------------
 # Konfiguration
 # -----------------------------------------------------------------------------
-WG_PING_TARGET  = os.environ.get("WG_PING_TARGET", "10.0.0.1")
-WG_TIMEOUT      = int(os.environ.get("WG_TIMEOUT", 30))
+WG_PING_TARGET  = os.environ.get("WG_PING_TARGET", "192.168.178.1")
 CHECK_INTERVAL  = 5   # Sekunden zwischen Prüfungen
 WLAN_CONFIG     = "/etc/remoteusb/networks.json"
 
@@ -278,7 +277,6 @@ signal.signal(signal.SIGUSR2, exit_force_ap)
 if __name__ == "__main__":
     print(f"[INFO] RemoteUSB Watchdog gestartet.")
     print(f"[INFO] WireGuard Ping-Target: {WG_PING_TARGET}")
-    print(f"[INFO] WireGuard Timeout: {WG_TIMEOUT}s")
 
     # PID speichern
     os.makedirs("/run/remoteusb", exist_ok=True)
