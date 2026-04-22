@@ -43,9 +43,15 @@ EOF
 }
 
 USBIP="$(command -v usbip || true)"
+# Ubuntu linux-tools: bevorzugt den Binary zum aktuell laufenden Kernel,
+# sonst fallback auf den neuesten verfügbaren (alphabetisch letzter).
 if [ -z "$USBIP" ]; then
-    # Debian-Paket 'usbip' vs. Ubuntu linux-tools Pfad
-    USBIP="$(ls /usr/lib/linux-tools/*/usbip 2>/dev/null | head -1 || true)"
+    kernel="$(uname -r)"
+    if [ -x "/usr/lib/linux-tools/$kernel/usbip" ]; then
+        USBIP="/usr/lib/linux-tools/$kernel/usbip"
+    else
+        USBIP="$(ls /usr/lib/linux-tools/*/usbip 2>/dev/null | sort -V | tail -1 || true)"
+    fi
 fi
 if [ -z "$USBIP" ]; then
     echo "error: 'usbip' not found. Install package 'usbip' (Debian) or" >&2
