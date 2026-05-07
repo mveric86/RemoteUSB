@@ -289,6 +289,27 @@ reicht, EXIT fired nach INT/TERM ohnehin.
   `config/default.conf` (aktuell alle 100 %) könnten besser vor-kalibriert
   werden (z.B. Grün/Blau auf 40, Rot bei 100).
 
+### WireGuard-Stabilität in flakigen Cafe-WLANs
+
+- **Symptom**: LED wechselt häufig kurz gelb (wg_error) → blau, manchmal
+  längere Gelb-Phasen. SSH-Sessions bleiben oft trotzdem verbunden weil
+  TCP retransmittet, aber die LED-Anzeige flackert kosmetisch.
+- **Vermutete Ursachen**: (a) Cafe-WLAN-Packet-Loss, (b) PMTU-Probleme weil
+  WG ~80 Byte Overhead hat und der Pfad evtl. nicht ehrlich PMTU-Discovery
+  macht, (c) NAT-Tabellen-Timeout am Cafe-Router wenn länger keine Pakete
+  fließen, (d) Fritzbox-DynDNS-IP-Wechsel beim 24h-DSL-Reconnect.
+- **TODO Quick-Fix**: `MTU = 1380` (oder konservativer 1280) im
+  `[Interface]`-Block der wg0.conf ergänzen. Standard wg-quick MTU ist 1420,
+  das ist für viele Cafe-Wege zu hoch. Kann im Webinterface beim WG-Save
+  automatisch ergänzt werden falls nicht vorhanden.
+- **TODO Reconnect-Logic**: Wenn `is_wg_connected()` länger als z.B. 60s
+  fehlschlägt obwohl `wg0` als Interface up ist, sollte der Watchdog
+  `wg-quick down wg0 && wg-quick up wg0` ausführen. Dabei wird der Endpoint
+  per DynDNS frisch resolved, was Fritzbox-IP-Wechsel kompensiert. Aktuell
+  hängt der Tunnel still nach IP-Wechsel bis manuell neu gestartet wird.
+- **`PersistentKeepalive = 25`**: in Fritzbox-generierter Config bereits
+  enthalten, hilft gegen NAT-Timeout. Bei selbstgebauten Configs prüfen.
+
 ### USB Mass Storage zu Windows
 
 - **Symptom**: Über `usbip-win2` zu einem Windows-Client läuft Mass Storage
