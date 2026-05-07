@@ -289,6 +289,27 @@ reicht, EXIT fired nach INT/TERM ohnehin.
   `config/default.conf` (aktuell alle 100 %) könnten besser vor-kalibriert
   werden (z.B. Grün/Blau auf 40, Rot bei 100).
 
+### USB Mass Storage zu Windows
+
+- **Symptom**: Über `usbip-win2` zu einem Windows-Client läuft Mass Storage
+  (USB-Sticks, Card-Reader, externe Platten) instabil. Initial Code 10 im
+  Geräte-Manager, nach Re-Attach wird das Gerät zwar als „USB-Massenspeicher"
+  erkannt, aber Windows enumeriert keinen Datenträger. Der gleiche Pi-Server
+  funktioniert mit einem Linux-Client tadellos – das Problem liegt also auf
+  der Client-Seite (usbip-win2-Implementierung).
+- **Wo offen**: Beim Detach von Windows triggert `usbip-win2` einen
+  reproduzierbaren **Kernel-Oops im `usbip_host`-Modul** auf dem Pi
+  (`stub_shutdown_connection` → `usb_kill_urb`). Danach hängt das USB-Subsystem,
+  `lsusb` blockiert, neue Attaches scheitern bis zum Reboot.
+- **TODO**: Auto-Recovery im Watchdog: periodischer `lsusb`-Healthcheck mit
+  Timeout, bei Hang erst `rmmod usbip_host && modprobe usbip_host` versuchen,
+  bei Bedarf systemd-Reboot triggern. Macht den Pi self-healing ohne
+  Power-Cycle. Caveat: aggressive Auto-Reboots wären schädlich während eines
+  laufenden ISO-Flash (Imager-Feature) – muss konditional sein.
+- **Workaround heute**: Linux-Client (auch in einer kleinen Hyper-V/VBox-VM
+  neben Windows) ist robust. Im README sollte stehen dass Mass Storage zu
+  Windows-Direkt aktuell unzuverlässig ist.
+
 ## Nutzer-spezifische Informationen
 
 Konkrete IPs, SSH-Zugangsdaten, Git-Remote-URLs und ähnliche Infrastruktur-

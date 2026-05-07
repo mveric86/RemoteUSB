@@ -35,10 +35,19 @@ Ermöglicht das drahtlose Einbinden beliebiger USB-Geräte über WLAN in ein Sys
 
 **Client:**
 
-- Linux (Debian/Ubuntu/Arch, ...) – nativ über `usbip`
-- Windows 11 – offizieller Microsoft USB/IP-Treiber (usbipd-win)
-- Windows 10 – Open-Source-Alternativen (usbipd-win)
+- Linux (Debian/Ubuntu/Arch, ...) – nativ über `usbip` ✅ vollständig
+- Windows 10/11 – über das Drittanbieter-Projekt [usbip-win2](https://github.com/vadimgrn/usbip-win2) ⚠️ teilweise
 - macOS – nicht unterstützt (USB/IP nicht im Kernel)
+
+> **Wichtig zu Windows:** Microsoft liefert keinen nativen USB/IP-Client mit
+> aus. `usbipd-win` ist ausschließlich für *Sharing aus Windows raus* (Richtung
+> WSL2), nicht zum Attachen von einem Linux-Server. Der praktikable Weg ist
+> `usbip-win2` mit Microsoft-Attestation-Signing (kein Test-Mode nötig).
+> Allerdings ist USB-Mass-Storage (Sticks, Kartenleser) in dieser Kombination
+> derzeit unzuverlässig (Code 10, Detach kann das Pi-Kernelmodul wedgen) –
+> HID, Audio, MTP-Geräte funktionieren oft. Wer Mass Storage zuverlässig
+> braucht, fährt mit einer **kleinen Linux-VM auf dem Windows-Host** als
+> Bridge oder mit einem nativ-Linux-Client am besten.
 
 Innerhalb einer Proxmox-VM: funktioniert out-of-the-box. In einem LXC-Container funktioniert es mit einmaligem Host-Setup (`vhci-hcd` + Mount-Entry), siehe [Client-Nutzung in LXC](#client-nutzung-in-lxc).
 
